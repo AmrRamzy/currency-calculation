@@ -1,0 +1,79 @@
+version: "3.9"
+services:
+
+  service-discovery:
+    build: ../service-discovery
+    ports:
+      - 9999:9999
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - ../.:/workspace
+    networks:
+      - myNetwork
+
+  configuration-server:
+    build: ../configuration-server
+    ports:
+      - 8881:8881
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - type: bind
+        source: ../.
+        target: /workspace
+    networks:
+      - myNetwork
+    depends_on:
+      - service-discovery
+
+  limits-service:
+    build: ../limits-service
+    ports:
+      - 7071:7071
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - ../.:/workspace
+    networks:
+      - myNetwork
+    depends_on:
+      - service-discovery
+      - configuration-server
+    #entrypoint: ["/workspace/wait-for-it.sh" , "configuration-server:8881" , "--strict" , "--timeout=60" , "--" , "java","-jar","/workspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
+    entrypoint: ["/workspace/limits-service/wait-and-run.sh","2m","./workspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
+
+  currency-exchange:
+    build: ../currency-exchange
+    ports:
+      - 9091
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - type: bind
+        source: ../.
+        target: /workspace
+    networks:
+      - myNetwork
+    depends_on:
+      - service-discovery
+
+  currency-calculation:
+    build: .
+    ports:
+      - 8081:8081
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - type: bind
+        source: ../.
+        target: /workspace
+    networks:
+      - myNetwork
+    depends_on:
+      - service-discovery
+
+networks:
+  myNetwork:
+    driver: bridge
+
