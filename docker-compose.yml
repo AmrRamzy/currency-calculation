@@ -2,18 +2,18 @@ version: "3.9"
 services:
 
   service-discovery:
-    build: ../service-discovery
+    image: service-discovery
     ports:
       - 9999:9999
     environment:
       - EUREKA_SERVER=http://service-discovery:9999/eureka
     volumes:
-      - ../.:/workspace
+      - ../.:/DockerWorkspace
     networks:
       - myNetwork
 
   configuration-server:
-    build: ../configuration-server
+    image: configuration-server
     ports:
       - 8881:8881
     environment:
@@ -21,30 +21,31 @@ services:
     volumes:
       - type: bind
         source: ../.
-        target: /workspace
+        target: /DockerWorkspace
     networks:
       - myNetwork
     depends_on:
       - service-discovery
 
   limits-service:
-    build: ../limits-service
+    image: limits-service
     ports:
       - 7071:7071
     environment:
       - EUREKA_SERVER=http://service-discovery:9999/eureka
+      - CONFIGURATION_SERVER_URL=http://configuration-server:8881
     volumes:
-      - ../.:/workspace
+      - ../.:/DockerWorkspace
     networks:
       - myNetwork
     depends_on:
       - service-discovery
       - configuration-server
-    #entrypoint: ["/workspace/wait-for-it.sh" , "configuration-server:8881" , "--strict" , "--timeout=60" , "--" , "java","-jar","/workspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
-    entrypoint: ["/workspace/limits-service/wait-and-run.sh","2m","./workspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
+    #entrypoint: ["/DockerWorkspace/wait-for-it.sh" , "configuration-server:8881" , "--strict" , "--timeout=60" , "--" , "java","-jar","/DockerWorkspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
+    entrypoint: ["/DockerWorkspace/limits-service/wait-and-run.sh","2m","./DockerWorkspace/limits-service/target/limits-service-0.0.1-SNAPSHOT.jar"]
 
   currency-exchange:
-    build: ../currency-exchange
+    image: currency-exchange
     ports:
       - 9091
     environment:
@@ -52,14 +53,14 @@ services:
     volumes:
       - type: bind
         source: ../.
-        target: /workspace
+        target: /DockerWorkspace
     networks:
       - myNetwork
     depends_on:
       - service-discovery
 
   currency-calculation:
-    build: .
+    image: currency-calculation
     ports:
       - 8081:8081
     environment:
@@ -67,7 +68,22 @@ services:
     volumes:
       - type: bind
         source: ../.
-        target: /workspace
+        target: /DockerWorkspace
+    networks:
+      - myNetwork
+    depends_on:
+      - service-discovery
+
+  api-gateway:
+    image: api-gateway
+    ports:
+      - 8080:8080
+    environment:
+      - EUREKA_SERVER=http://service-discovery:9999/eureka
+    volumes:
+      - type: bind
+        source: ../.
+        target: /DockerWorkspace
     networks:
       - myNetwork
     depends_on:
