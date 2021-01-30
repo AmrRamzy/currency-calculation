@@ -4,12 +4,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amr.currencycalculation.dto.ExchangeObject;
 import com.amr.currencycalculation.dto.Limits;
@@ -19,6 +21,9 @@ public class CurrencyCalculationRestController {
 
 	@Autowired
 	RestTemplate restTemplate;
+	
+	@Autowired
+	WebClient.Builder webClientBuilder;
 
 	@GetMapping("currency-conversion/from/{from}/to/{to}/amount/{amount}")
 	public ResponseEntity currencyCalculation(@PathVariable String from, @PathVariable String to,
@@ -30,8 +35,14 @@ public class CurrencyCalculationRestController {
 
 			try {
 //				exchangeObject = getExchangeRate(from, to, amount, exchangeObject);
-				Limits limits = restTemplate.getForObject("http://limits-service/limits-service/getLimits", Limits.class,
-						new HashMap<String, String>());
+//				Limits limits = restTemplate.getForObject("http://limits-service/limits-service/getLimits", Limits.class,
+//						new HashMap<String, String>());
+				Limits limits = webClientBuilder.build()
+						.get()
+						.uri("http://limits-service/limits-service/getLimits")
+						.accept(MediaType.APPLICATION_JSON)
+						.exchangeToMono(res -> res.bodyToMono(Limits.class))
+						.block();
 				if (limits != null && limits.getMin() < amount && amount < limits.getMax()) {
 					exchangeObject = getExchangeRate(from, to, amount, exchangeObject);
 				} else {
@@ -57,8 +68,14 @@ public class CurrencyCalculationRestController {
 		vars.put("from", from);
 		vars.put("to", to);
 		try {
-			exchangeObject = restTemplate.getForObject("http://CURRENCY-EXCHANGE/currency-conversion/from/{from}/to/{to}",
-					ExchangeObject.class, vars);
+			exchangeObject = webClientBuilder.build()
+					.get()
+					.uri("http://CURRENCY-EXCHANGE/currency-conversion/from/{from}/to/{to}",vars)
+					.accept(MediaType.APPLICATION_JSON)
+					.exchangeToMono(res -> res.bodyToMono(ExchangeObject.class))
+					.block();
+//			exchangeObject = restTemplate.getForObject("http://CURRENCY-EXCHANGE/currency-conversion/from/{from}/to/{to}",
+//					ExchangeObject.class, vars);
 			exchangeObject.setAmount(amount * exchangeObject.getConversionRate());
 		} catch (Exception e) {
 			System.err.println(e);
